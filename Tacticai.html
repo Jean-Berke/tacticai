@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TacticAI — Analyse tactique football</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── VARIABLES & RESET ─────────────────────────────────────── */
+    :root {
+      --green:   #00ff87;
+      --green2:  #00c96a;
+      --dark:    #080d0a;
+      --dark2:   #0f1a13;
+      --dark3:   #162019;
+      --card:    #111a14;
+      --border:  rgba(0, 255, 135, 0.15);
+      --text:    #e8f0eb;
+      --muted:   #6b8572;
+      --red:     #ff4d4d;
+      --amber:   #ffb347;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--dark);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grille de fond */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,255,135,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,135,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 16px 80px;
+    }
+
+    /* ─── HEADER ─────────────────────────────────────────────────── */
+    header { text-align: center; margin-bottom: 36px; }
+
+    .badge {
+      display: inline-block;
+      background: rgba(0,255,135,0.1);
+      border: 1px solid var(--border);
+      color: var(--green);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 100px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(44px, 10vw, 80px);
+      line-height: 0.9;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+
+    h1 span { color: var(--green); }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 10px;
+      font-weight: 300;
+    }
+
+    /* ─── TABS ───────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 0;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px 6px;
+      text-align: center;
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 10px 10px 0 0;
+      transition: all .15s;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+
+    .tab.active {
+      background: var(--card);
+      border-bottom-color: var(--card);
+      color: var(--green);
+    }
+
+    .tab-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0 0 14px 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────────── */
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 580px) {
+      .cols { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .panel-title {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+
+    .panel-title.red { color: var(--red); }
+
+    /* ─── LABELS ─────────────────────────────────────────────────── */
+    .lbl {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+      margin-top: 12px;
+      font-weight: 500;
+      display: block;
+    }
+
+    .lbl:first-child { margin-top: 0; }
+
+    /* ─── BOUTONS FORMATION ──────────────────────────────────────── */
+    .formation-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .f-btn {
+      background: var(--dark);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 5px 12px;
+      border-radius: 7px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .f-btn:hover { border-color: var(--green); color: var(--green); }
+    .f-btn.active { background: rgba(0,255,135,.12); border-color: var(--green); color: var(--green); }
+    .f-btn.active-red { background: rgba(255,77,77,.12); border-color: var(--red); color: var(--red); }
+
+    /* ─── INPUTS JOUEURS ─────────────────────────────────────────── */
+    .players-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .players-grid::-webkit-scrollbar { width: 3px; }
+    .players-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .player-row { display: flex; align-items: center; gap: 8px; }
+
+    .pos-label {
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      width: 32px;
+      flex-shrink: 0;
+    }
+
+    .player-input {
+      flex: 1;
+      background: var(--dark);
+      border: 1px solid rgba(0,255,135,.1);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 11px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .player-input:focus { border-color: var(--green); }
+    .player-input.red:focus { border-color: var(--red); }
+    .player-input::placeholder { color: var(--muted); opacity: .45; }
+
+    /* ─── SUBSTITUTS ─────────────────────────────────────────────── */
+    .subs-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+
+    .sub-row { display: flex; align-items: center; gap: 8px; }
+
+    .sub-num {
+      font-size: 9px;
+      color: var(--muted);
+      width: 16px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    /* ─── TERRAIN ────────────────────────────────────────────────── */
+    .pitch {
+      width: 100%;
+      aspect-ratio: 0.63;
+      background: #1a2e1f;
+      border-radius: 10px;
+      border: 2px solid rgba(255,255,255,.06);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pitch::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 49%, rgba(255,255,255,.04) 49%, rgba(255,255,255,.04) 50%),
+        repeating-linear-gradient(90deg, transparent, transparent 49%, rgba(255,255,255,.04) 49%, rgba(255,255,255,.04) 50%);
+      background-size: 25% 20%;
+    }
+
+    .pitch-mark { position: absolute; background: none; pointer-events: none; }
+    .pitch-center {
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 28%; aspect-ratio: 1;
+      border: 1.5px solid rgba(255,255,255,.12);
+      border-radius: 50%;
+    }
+    .pitch-half { left: 10%; right: 10%; top: 50%; height: 1.5px; background: rgba(255,255,255,.1); }
+    .pitch-box-top { left: 20%; right: 20%; top: 4%; height: 17%; border: 1.5px solid rgba(255,255,255,.1); border-top: none; }
+    .pitch-box-bot { left: 20%; right: 20%; bottom: 4%; height: 17%; border: 1.5px solid rgba(255,255,255,.1); border-bottom: none; }
+
+    .player-dot {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .dot-circle {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      font-weight: 600;
+      border: 2px solid;
+      letter-spacing: .3px;
+    }
+
+    .dot-circle.our   { background: rgba(0,255,135,.2); border-color: var(--green); color: var(--green); }
+    .dot-circle.their { background: rgba(255,77,77,.2);  border-color: var(--red);   color: var(--red); }
+
+    .dot-name {
+      font-size: 7px;
+      color: rgba(255,255,255,.65);
+      text-align: center;
+      max-width: 48px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ─── STYLES DE JEU ──────────────────────────────────────────── */
+    .styles-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+
+    textarea.notes {
+      width: 100%;
+      background: var(--dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--text);
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      resize: vertical;
+      min-height: 70px;
+      outline: none;
+      line-height: 1.6;
+    }
+
+    /* ─── API KEY ────────────────────────────────────────────────── */
+    .api-banner {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+
+    .api-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .api-lbl {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .api-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    .api-input:focus { border-color: var(--green); }
+    .api-input::placeholder { color: var(--muted); opacity: .5; }
+
+    .api-save-btn {
+      background: var(--green);
+      color: var(--dark);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: 'Bebas Neue', sans-serif;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: filter .15s;
+      flex-shrink: 0;
+    }
+
+    .api-save-btn:hover { filter: brightness(1.1); }
+
+    .api-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .api-step {
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .api-step a { color: var(--green); text-decoration: none; }
+    .api-step strong { color: var(--text); }
+
+    /* ─── BOUTON ANALYSER ────────────────────────────────────────── */
+    .cta-wrap { text-align: center; margin: 24px 0; }
+
+    .cta-btn {
+      background: var(--green);
+      color: var(--dark);
+      border: none;
+      padding: 14px 44px;
+      border-radius: 100px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .cta-btn:hover { filter: brightness(1.1); }
+    .cta-btn:active { transform: scale(.97); }
+    .cta-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .cta-btn.secondary { background: var(--dark3); color: var(--green); border: 1px solid var(--green); }
+
+    /* ─── LOADING ────────────────────────────────────────────────── */
+    .loading { display: none; text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+    .loading.show { display: block; }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── ERREUR ─────────────────────────────────────────────────── */
+    .error-msg {
+      background: rgba(255,77,77,.1);
+      border: 1px solid rgba(255,77,77,.3);
+      border-radius: 9px;
+      padding: 12px 16px;
+      color: var(--red);
+      font-size: 12px;
+      margin: 10px 0;
+      display: none;
+    }
+
+    .error-msg.show { display: block; }
+    .error-msg a { color: var(--green); }
+
+    /* ─── RÉSULTATS ──────────────────────────────────────────────── */
+    .result { display: none; }
+    .result.show { display: block; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 30px;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .stat-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Section title */
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: #fff;
+      margin: 20px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── DUELS ──────────────────────────────────────────────────── */
+    .matchups { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+    .matchup {
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .matchup-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .mu-our { flex: 1; text-align: right; }
+    .mu-our .mu-name { font-size: 13px; color: var(--text); font-weight: 500; }
+    .mu-our .mu-pos  { font-size: 9px; color: var(--green); letter-spacing: 1px; text-transform: uppercase; }
+
+    .mu-vs {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .mu-their { flex: 1; }
+    .mu-their .mu-name { font-size: 13px; color: var(--red); font-weight: 500; }
+    .mu-their .mu-pos  { font-size: 9px; color: rgba(255,77,77,.7); letter-spacing: 1px; text-transform: uppercase; }
+
+    .mu-comment {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-style: italic;
+      border-top: 1px solid var(--border);
+      padding-top: 6px;
+    }
+
+    .mu-tag {
+      display: inline-block;
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 100px;
+      margin-bottom: 4px;
+    }
+
+    .mu-tag.high   { background: rgba(255,77,77,.15); color: var(--red); border: 1px solid rgba(255,77,77,.3); }
+    .mu-tag.medium { background: rgba(255,179,71,.15); color: var(--amber); border: 1px solid rgba(255,179,71,.3); }
+    .mu-tag.low    { background: rgba(0,255,135,.1); color: var(--green); border: 1px solid rgba(0,255,135,.2); }
+
+    /* ─── LISTE JOUEURS RÉSULTAT ─────────────────────────────────── */
+    .player-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--dark3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .pi-pos   { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--green); width: 28px; flex-shrink: 0; font-weight: 500; }
+    .pi-name  { flex: 1; color: var(--text); }
+    .pi-role  { font-size: 10px; color: var(--muted); font-style: italic; }
+
+    /* ─── ANALYSE ────────────────────────────────────────────────── */
+    .analysis-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      line-height: 1.8;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .analysis-block h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 17px;
+      color: var(--green);
+      letter-spacing: 2px;
+      margin: 14px 0 6px;
+    }
+
+    .analysis-block h3:first-child { margin-top: 0; }
+    .analysis-block p { color: var(--muted); margin-bottom: 6px; }
+    .analysis-block ul { padding-left: 14px; }
+    .analysis-block li { color: var(--muted); margin-bottom: 3px; }
+    .analysis-block li strong { color: var(--text); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="badge">⚽ Bachelor 3 ISEP — TacticAI</div>
+    <h1>TACTIC<span>AI</span></h1>
+    <p class="subtitle">Analyse tactique adverse par IA · Jean-Berké AKDOGAN & Mateo PEREZ</p>
+  </header>
+
+  <!-- CLÉ API GEMINI -->
+  <div class="api-banner">
+    <div class="api-row">
+      <span class="api-lbl">Clé API Gemini</span>
+      <input class="api-input" type="password" id="api-key" placeholder="AIza..." />
+      <button class="api-save-btn" onclick="saveApiKey()">SAUVEGARDER</button>
+    </div>
+    <div class="api-steps">
+      <div class="api-step">① Va sur <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+      <div class="api-step">② Connecte-toi avec Google</div>
+      <div class="api-step">③ Clique <strong>Create API key</strong></div>
+      <div class="api-step">④ Colle la clé ici → Sauvegarder ✓</div>
+    </div>
+  </div>
+
+  <!-- TABS SAISIE -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" onclick="showTab(0)">Notre équipe</div>
+    <div class="tab"        onclick="showTab(1)">Équipe adverse</div>
+    <div class="tab"        onclick="showTab(2)">Styles de jeu</div>
+  </div>
+
+  <div class="tab-content">
+
+    <!-- TAB 0 : NOTRE ÉQUIPE -->
+    <div class="tab-pane active" id="tab0">
+      <div class="cols">
+        <div>
+          <span class="lbl">Notre formation</span>
+          <div class="formation-wrap" id="our-formations"></div>
+          <span class="lbl">Nos 11 titulaires</span>
+          <div class="players-grid" id="our-players"></div>
+        </div>
+        <div>
+          <span class="lbl">Aperçu terrain</span>
+          <div class="pitch" id="pitch-our">
+            <div class="pitch-mark pitch-center"></div>
+            <div class="pitch-mark pitch-half"></div>
+            <div class="pitch-mark pitch-box-top"></div>
+            <div class="pitch-mark pitch-box-bot"></div>
+          </div>
+        </div>
+      </div>
+      <span class="lbl" style="margin-top:14px">Nos remplaçants (max 7)</span>
+      <div class="subs-grid" id="our-subs"></div>
+    </div>
+
+    <!-- TAB 1 : ÉQUIPE ADVERSE -->
+    <div class="tab-pane" id="tab1">
+      <div class="cols">
+        <div>
+          <span class="lbl">Leur formation</span>
+          <div class="formation-wrap" id="their-formations"></div>
+          <span class="lbl">Leurs 11 titulaires</span>
+          <div class="players-grid" id="their-players"></div>
+        </div>
+        <div>
+          <span class="lbl">Aperçu terrain</span>
+          <div class="pitch" id="pitch-their">
+            <div class="pitch-mark pitch-center"></div>
+            <div class="pitch-mark pitch-half"></div>
+            <div class="pitch-mark pitch-box-top"></div>
+            <div class="pitch-mark pitch-box-bot"></div>
+          </div>
+        </div>
+      </div>
+      <span class="lbl" style="margin-top:14px">Leurs remplaçants (max 7)</span>
+      <div class="subs-grid" id="their-subs"></div>
+    </div>
+
+    <!-- TAB 2 : STYLES DE JEU -->
+    <div class="tab-pane" id="tab2">
+      <div class="cols">
+        <div class="panel">
+          <div class="panel-title">Notre style de jeu</div>
+          <div class="styles-wrap" id="our-styles"></div>
+          <span class="lbl">Notes tactiques</span>
+          <textarea class="notes" id="our-notes" placeholder="Ex : on joue avec un faux 9, notre latéral droit monte beaucoup..."></textarea>
+        </div>
+        <div class="panel">
+          <div class="panel-title red">Style adverse</div>
+          <div class="styles-wrap" id="their-styles"></div>
+          <span class="lbl">Notes sur l'adversaire</span>
+          <textarea class="notes" id="their-notes" placeholder="Ex : équipe très physique, beaucoup de longs ballons..."></textarea>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+
+  <!-- ERREUR -->
+  <div class="error-msg" id="error-msg"></div>
+
+  <!-- BOUTON ANALYSER -->
+  <div class="cta-wrap">
+    <button class="cta-btn" id="analyze-btn" onclick="analyze()">
+      ANALYSER ET GÉNÉRER LA TACTIQUE
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    Analyse tactique en cours…
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div class="result" id="result">
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <!-- Terrains côte à côte -->
+    <div class="cols" style="margin-bottom:20px">
+      <div class="panel">
+        <div class="panel-title">✓ Notre 11</div>
+        <div class="pitch" id="pitch-result-our">
+          <div class="pitch-mark pitch-center"></div>
+          <div class="pitch-mark pitch-half"></div>
+          <div class="pitch-mark pitch-box-top"></div>
+          <div class="pitch-mark pitch-box-bot"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title red">⚠ Équipe adverse</div>
+        <div class="pitch" id="pitch-result-their">
+          <div class="pitch-mark pitch-center"></div>
+          <div class="pitch-mark pitch-half"></div>
+          <div class="pitch-mark pitch-box-top"></div>
+          <div class="pitch-mark pitch-box-bot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duels clés -->
+    <div class="section-title">Duels clés — qui marque qui</div>
+    <div class="matchups" id="matchups"></div>
+
+    <!-- Notre 11 -->
+    <div class="section-title">Notre 11 recommandé</div>
+    <div id="player-list" style="margin-bottom:20px"></div>
+
+    <!-- Analyse -->
+    <div class="section-title">Analyse & consignes</div>
+    <div class="analysis-block" id="analysis"></div>
+
+    <!-- Recommencer -->
+    <div class="cta-wrap">
+      <button class="cta-btn secondary" onclick="reset()">NOUVELLE ANALYSE</button>
+    </div>
+
+  </div><!-- /result -->
+
+</div><!-- /wrap -->
+
+<script>
+// ─── DONNÉES FORMATIONS ──────────────────────────────────────────────────────
+const FORMATIONS = {
+  '4-3-3':   [{r:'GB',x:50,y:91},{r:'DD',x:80,y:75},{r:'DC',x:62,y:70},{r:'DC',x:38,y:70},{r:'DG',x:20,y:75},{r:'MD',x:70,y:50},{r:'MC',x:50,y:45},{r:'MG',x:30,y:50},{r:'AD',x:75,y:22},{r:'BU',x:50,y:14},{r:'AG',x:25,y:22}],
+  '4-4-2':   [{r:'GB',x:50,y:91},{r:'DD',x:80,y:75},{r:'DC',x:62,y:70},{r:'DC',x:38,y:70},{r:'DG',x:20,y:75},{r:'MD',x:78,y:50},{r:'MC',x:58,y:48},{r:'MC',x:38,y:48},{r:'MG',x:22,y:50},{r:'BU',x:38,y:17},{r:'BU',x:62,y:17}],
+  '4-2-3-1': [{r:'GB',x:50,y:91},{r:'DD',x:80,y:75},{r:'DC',x:62,y:70},{r:'DC',x:38,y:70},{r:'DG',x:20,y:75},{r:'MDC',x:60,y:57},{r:'MDC',x:40,y:57},{r:'AD',x:75,y:36},{r:'MC',x:50,y:33},{r:'AG',x:25,y:36},{r:'BU',x:50,y:14}],
+  '3-5-2':   [{r:'GB',x:50,y:91},{r:'DC',x:70,y:72},{r:'DC',x:50,y:70},{r:'DC',x:30,y:72},{r:'PD',x:83,y:52},{r:'MC',x:65,y:46},{r:'MDC',x:50,y:48},{r:'MC',x:35,y:46},{r:'PG',x:17,y:52},{r:'BU',x:38,y:17},{r:'BU',x:62,y:17}],
+  '5-3-2':   [{r:'GB',x:50,y:91},{r:'PD',x:85,y:72},{r:'DC',x:68,y:76},{r:'DC',x:50,y:78},{r:'DC',x:32,y:76},{r:'PG',x:15,y:72},{r:'MD',x:70,y:48},{r:'MC',x:50,y:44},{r:'MG',x:30,y:48},{r:'BU',x:38,y:17},{r:'BU',x:62,y:17}],
+  '3-4-3':   [{r:'GB',x:50,y:91},{r:'DC',x:70,y:72},{r:'DC',x:50,y:70},{r:'DC',x:30,y:72},{r:'MD',x:75,y:50},{r:'MC',x:57,y:46},{r:'MC',x:38,y:46},{r:'MG',x:25,y:50},{r:'AD',x:75,y:20},{r:'BU',x:50,y:14},{r:'AG',x:25,y:20}],
+  '4-1-4-1': [{r:'GB',x:50,y:91},{r:'DD',x:80,y:75},{r:'DC',x:62,y:70},{r:'DC',x:38,y:70},{r:'DG',x:20,y:75},{r:'MDC',x:50,y:57},{r:'MD',x:78,y:40},{r:'MC',x:60,y:38},{r:'MC',x:40,y:38},{r:'MG',x:22,y:40},{r:'BU',x:50,y:14}],
+  '4-5-1':   [{r:'GB',x:50,y:91},{r:'DD',x:80,y:75},{r:'DC',x:62,y:70},{r:'DC',x:38,y:70},{r:'DG',x:20,y:75},{r:'MD',x:80,y:46},{r:'MC',x:63,y:42},{r:'MC',x:50,y:40},{r:'MC',x:37,y:42},{r:'MG',x:20,y:46},{r:'BU',x:50,y:14}],
+};
+
+const STYLES_OUR   = ['Pressing haut','Bloc bas','Possession','Contre-attaque','Jeu direct','Jeu par les ailes','Jeu court','Pressing milieu'];
+const STYLES_THEIR = ['Pressing haut','Bloc bas','Possession','Contre-attaque','Jeu direct','Jeu par les ailes','Long balls','Jeu physique'];
+
+// ─── ÉTAT DE L'APPLICATION ───────────────────────────────────────────────────
+const state = {
+  ourFormation:   '4-3-3',
+  theirFormation: '4-3-3',
+  ourStyles:   [],
+  theirStyles: [],
+};
+
+// ─── GESTION ONGLETS ─────────────────────────────────────────────────────────
+function showTab(n) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === n));
+  document.querySelectorAll('.tab-pane').forEach((p, i) => p.classList.toggle('active', i === n));
+}
+
+// ─── CLÉ API ─────────────────────────────────────────────────────────────────
+function saveApiKey() {
+  const key = document.getElementById('api-key').value.trim();
+  if (key) {
+    localStorage.setItem('tacticai_gemini_key', key);
+    showMessage('✓ Clé sauvegardée !', 'var(--green)');
+  }
+}
+
+function getApiKey() {
+  return document.getElementById('api-key').value.trim()
+      || localStorage.getItem('tacticai_gemini_key')
+      || '';
+}
+
+function showMessage(text, color) {
+  const el = document.getElementById('error-msg');
+  el.innerHTML = text;
+  el.style.color = color;
+  el.style.background = color.includes('green') ? 'rgba(0,255,135,.08)' : 'rgba(255,77,77,.1)';
+  el.style.borderColor = color.includes('green') ? 'rgba(0,255,135,.3)' : 'rgba(255,77,77,.3)';
+  el.classList.add('show');
+  if (color.includes('green')) setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── BOUTONS FORMATION ───────────────────────────────────────────────────────
+function buildFormationButtons(containerId, stateKey, isTheir) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  Object.keys(FORMATIONS).forEach(f => {
+    const btn = document.createElement('button');
+    btn.className = 'f-btn' + (state[stateKey] === f ? (isTheir ? ' active-red' : ' active') : '');
+    btn.textContent = f;
+    btn.onclick = () => {
+      container.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active', 'active-red'));
+      btn.classList.add(isTheir ? 'active-red' : 'active');
+      state[stateKey] = f;
+      buildPlayerInputs(
+        isTheir ? 'their-players' : 'our-players',
+        f, isTheir
+      );
+      renderPitch(
+        isTheir ? 'pitch-their' : 'pitch-our',
+        FMTS_POSITIONS(f), isTheir ? 'their' : 'our', []
+      );
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ─── INPUTS JOUEURS ──────────────────────────────────────────────────────────
+function buildPlayerInputs(containerId, formation, isTheir) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  FORMATIONS[formation].forEach((pos, i) => {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    row.innerHTML = `
+      <span class="pos-label">${pos.r}</span>
+      <input class="player-input${isTheir ? ' red' : ''}"
+             data-idx="${i}"
+             placeholder="Nom du joueur…" />
+    `;
+    container.appendChild(row);
+  });
+}
+
+function buildSubsInputs(containerId, isTheir) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  for (let i = 1; i <= 7; i++) {
+    const row = document.createElement('div');
+    row.className = 'sub-row';
+    row.innerHTML = `
+      <span class="sub-num">${i}</span>
+      <input class="player-input${isTheir ? ' red' : ''}"
+             placeholder="Remplaçant ${i}…" />
+    `;
+    container.appendChild(row);
+  }
+}
+
+// ─── BOUTONS STYLES ──────────────────────────────────────────────────────────
+function buildStyleButtons(containerId, stylesArr, stateKey, isTheir) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  stylesArr.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'f-btn' + (state[stateKey].includes(s) ? (isTheir ? ' active-red' : ' active') : '');
+    btn.textContent = s;
+    btn.onclick = () => {
+      const isActive = state[stateKey].includes(s);
+      btn.classList.toggle('active', !isTheir && !isActive);
+      btn.classList.toggle('active-red', isTheir && !isActive);
+      if (isActive) {
+        state[stateKey] = state[stateKey].filter(x => x !== s);
+        btn.classList.remove('active', 'active-red');
+      } else {
+        state[stateKey].push(s);
+      }
+    };
+    container.appendChild(btn);
+  });
+}
+
+// ─── TERRAIN ─────────────────────────────────────────────────────────────────
+function FMTS_POSITIONS(formation) {
+  return FORMATIONS[formation] || FORMATIONS['4-3-3'];
+}
+
+function renderPitch(pitchId, positions, type, players) {
+  const pitch = document.getElementById(pitchId);
+  pitch.querySelectorAll('.player-dot').forEach(d => d.remove());
+
+  positions.forEach((pos, i) => {
+    const playerName = players[i] ? players[i].name : (pos.name || pos.r);
+    const shortName = playerName.length > 10 ? playerName.substring(0, 10) + '…' : playerName;
+
+    const dot = document.createElement('div');
+    dot.className = 'player-dot';
+    dot.style.cssText = `left:${pos.x}%;top:${pos.y}%;`;
+    dot.innerHTML = `
+      <div class="dot-circle ${type}">${pos.r}</div>
+      <div class="dot-name">${shortName}</div>
+    `;
+    pitch.appendChild(dot);
+  });
+}
+
+// ─── RÉCUPÉRATION DES DONNÉES ─────────────────────────────────────────────────
+function getPlayers(gridId, formation) {
+  return Array.from(document.querySelectorAll(`#${gridId} .player-input`))
+    .map((inp, i) => ({
+      pos:  FORMATIONS[formation]?.[i]?.r || '?',
+      name: inp.value.trim() || `Joueur ${i + 1}`,
+    }));
+}
+
+function getSubs(gridId) {
+  return Array.from(document.querySelectorAll(`#${gridId} .player-input`))
+    .map(inp => inp.value.trim())
+    .filter(Boolean);
+}
+
+// ─── ANALYSE ─────────────────────────────────────────────────────────────────
+async function analyze() {
+  const apiKey = getApiKey();
+
+  // Vérifier la clé API
+  if (!apiKey) {
+    showMessage(
+      '❌ Entre ta clé API Gemini. Va sur <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> pour en créer une gratuitement.',
+      'var(--red)'
+    );
+    return;
+  }
+
+  // Récupérer toutes les données
+  const ourPlayers   = getPlayers('our-players',   state.ourFormation);
+  const theirPlayers = getPlayers('their-players',  state.theirFormation);
+  const ourSubs      = getSubs('our-subs');
+  const theirSubs    = getSubs('their-subs');
+  const ourNotes     = document.getElementById('our-notes').value.trim();
+  const theirNotes   = document.getElementById('their-notes').value.trim();
+
+  // Afficher le chargement
+  const btn = document.getElementById('analyze-btn');
+  document.getElementById('error-msg').classList.remove('show');
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('result').classList.remove('show');
+
+  // Construire le prompt
+  const prompt = buildPrompt({
+    ourPlayers, theirPlayers,
+    ourSubs, theirSubs,
+    ourNotes, theirNotes,
+  });
+
+  try {
+    // Appel à l'API Gemini
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erreur ${res.status} — vérifie ta clé API`);
+    }
+
+    const data = await res.json();
+    const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Extraire le JSON de la réponse
+    const match = raw.match(/```json\s*([\s\S]*?)\s*```/)
+                || raw.match(/```\s*([\s\S]*?)\s*```/)
+                || raw.match(/(\{[\s\S]*\})/);
+
+    if (!match) throw new Error('Réponse invalide du modèle IA. Réessaie.');
+
+    const parsed = JSON.parse(match[1] || match[0]);
+    displayResult(parsed, ourPlayers, theirPlayers);
+
+  } catch (err) {
+    showMessage('❌ ' + err.message, 'var(--red)');
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+    btn.disabled = false;
+  }
+}
+
+// ─── CONSTRUCTION DU PROMPT ───────────────────────────────────────────────────
+function buildPrompt({ ourPlayers, theirPlayers, ourSubs, theirSubs, ourNotes, theirNotes }) {
+  return `Tu es un analyste tactique football expert. Analyse ces deux équipes et génère une stratégie complète.
+
+NOTRE ÉQUIPE (formation: ${state.ourFormation}):
+Titulaires: ${ourPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
+Remplaçants: ${ourSubs.length ? ourSubs.join(', ') : 'non renseignés'}
+Style de jeu: ${state.ourStyles.length ? state.ourStyles.join(', ') : 'non défini'}
+${ourNotes ? 'Notes: ' + ourNotes : ''}
+
+ÉQUIPE ADVERSE (formation: ${state.theirFormation}):
+Titulaires: ${theirPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
+Remplaçants: ${theirSubs.length ? theirSubs.join(', ') : 'non renseignés'}
+Style de jeu: ${state.theirStyles.length ? state.theirStyles.join(', ') : 'non défini'}
+${theirNotes ? 'Notes: ' + theirNotes : ''}
+
+Réponds UNIQUEMENT avec ce JSON valide, zéro texte avant ou après:
+{
+  "threat_level": "Élevé|Moyen|Faible",
+  "win_probability": "XX%",
+  "key_weaknesses": ["faiblesse 1", "faiblesse 2", "faiblesse 3"],
+  "recommended_11": [
+    {"pos": "GB", "name": "nom exact du joueur", "role": "rôle tactique court"}
+  ],
+  "matchups": [
+    {
+      "our_player": "Nom",
+      "our_pos": "POSTE",
+      "their_player": "Nom",
+      "their_pos": "POSTE",
+      "intensity": "high|medium|low",
+      "comment": "Commentaire tactique précis sur ce duel en 1-2 phrases."
+    }
+  ],
+  "tactical_analysis": "Analyse en 3 paragraphes séparés par deux sauts de ligne.",
+  "key_instructions": ["Instruction 1", "Instruction 2", "Instruction 3", "Instruction 4", "Instruction 5"],
+  "sub_strategy": "Stratégie de remplacement recommandée en 1-2 phrases."
+}
+
+Règles: utilise les vrais noms des joueurs. Génère 5-6 duels clés. recommended_11 doit avoir exactement 11 joueurs adaptés à notre formation. intensity: high = duel crucial, medium = important, low = favorable pour nous.`;
+}
+
+// ─── AFFICHAGE DES RÉSULTATS ──────────────────────────────────────────────────
+function displayResult(data, ourPlayers, theirPlayers) {
+  // Stats
+  const tColor = data.threat_level === 'Élevé' ? 'var(--red)'
+               : data.threat_level === 'Moyen'  ? 'var(--amber)'
+               : 'var(--green)';
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Probabilité victoire</div>
+      <div class="stat-value">${data.win_probability}</div>
+      <div class="stat-sub">Estimation IA</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Niveau menace adverse</div>
+      <div class="stat-value" style="color:${tColor}">${data.threat_level}</div>
+      <div class="stat-sub">Évaluation globale</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Duels clés identifiés</div>
+      <div class="stat-value">${data.matchups?.length || 0}</div>
+      <div class="stat-sub">Face-à-face analysés</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Faiblesses exploitables</div>
+      <div class="stat-value">${data.key_weaknesses?.length || 0}</div>
+      <div class="stat-sub">${data.key_weaknesses?.[0] || ''}</div>
+    </div>
+  `;
+
+  // Terrains
+  renderPitch('pitch-result-our',   FMTS_POSITIONS(state.ourFormation),   'our',   ourPlayers);
+  renderPitch('pitch-result-their', FMTS_POSITIONS(state.theirFormation),  'their', theirPlayers);
+
+  // Duels clés
+  document.getElementById('matchups').innerHTML = (data.matchups || []).map(mu => {
+    const cls   = mu.intensity === 'high' ? 'high' : mu.intensity === 'medium' ? 'medium' : 'low';
+    const label = mu.intensity === 'high' ? 'Duel crucial' : mu.intensity === 'medium' ? 'Important' : 'Favorable';
+    return `
+      <div class="matchup">
+        <div class="matchup-top">
+          <div class="mu-our">
+            <div class="mu-name">${mu.our_player}</div>
+            <div class="mu-pos">${mu.our_pos}</div>
+          </div>
+          <div class="mu-vs">vs</div>
+          <div class="mu-their">
+            <div class="mu-name">${mu.their_player}</div>
+            <div class="mu-pos">${mu.their_pos}</div>
+          </div>
+        </div>
+        <div class="mu-comment">
+          <span class="mu-tag ${cls}">${label}</span><br>
+          ${mu.comment}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 11 recommandé
+  document.getElementById('player-list').innerHTML = (data.recommended_11 || []).map(p => `
+    <div class="player-item">
+      <span class="pi-pos">${p.pos}</span>
+      <span class="pi-name">${p.name}</span>
+      <span class="pi-role">${p.role}</span>
+    </div>
+  `).join('');
+
+  // Analyse textuelle
+  let html = '';
+  if (data.key_weaknesses?.length) {
+    html += `<h3>Faiblesses à exploiter</h3><ul>${data.key_weaknesses.map(w => `<li><strong>${w}</strong></li>`).join('')}</ul>`;
+  }
+  if (data.tactical_analysis) {
+    html += `<h3>Analyse tactique</h3>`;
+    data.tactical_analysis.split(/\n\n+/).forEach(para => {
+      if (para.trim()) html += `<p>${para.trim()}</p>`;
+    });
+  }
+  if (data.key_instructions?.length) {
+    html += `<h3>Consignes clés</h3><ul>${data.key_instructions.map(i => `<li><strong>${i}</strong></li>`).join('')}</ul>`;
+  }
+  if (data.sub_strategy) {
+    html += `<h3>Stratégie remplaçants</h3><p>${data.sub_strategy}</p>`;
+  }
+  document.getElementById('analysis').innerHTML = html;
+
+  // Afficher les résultats
+  document.getElementById('result').classList.add('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── RÉINITIALISATION ─────────────────────────────────────────────────────────
+function reset() {
+  document.getElementById('result').classList.remove('show');
+  showTab(0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── INITIALISATION ───────────────────────────────────────────────────────────
+function init() {
+  // Charger la clé sauvegardée
+  const savedKey = localStorage.getItem('tacticai_gemini_key');
+  if (savedKey) document.getElementById('api-key').value = savedKey;
+
+  // Construire les formations
+  buildFormationButtons('our-formations',   'ourFormation',   false);
+  buildFormationButtons('their-formations', 'theirFormation', true);
+
+  // Construire les inputs joueurs
+  buildPlayerInputs('our-players',   state.ourFormation,   false);
+  buildPlayerInputs('their-players', state.theirFormation, true);
+
+  // Construire les inputs remplaçants
+  buildSubsInputs('our-subs',   false);
+  buildSubsInputs('their-subs', true);
+
+  // Construire les boutons styles
+  buildStyleButtons('our-styles',   STYLES_OUR,   'ourStyles',   false);
+  buildStyleButtons('their-styles', STYLES_THEIR, 'theirStyles', true);
+
+  // Afficher les terrains initiaux
+  renderPitch('pitch-our',   FMTS_POSITIONS(state.ourFormation),   'our',   []);
+  renderPitch('pitch-their', FMTS_POSITIONS(state.theirFormation),  'their', []);
+}
+
+// Lancer l'app
+init();
+</script>
+</body>
+</html>
