@@ -823,7 +823,7 @@ function saveApiKey() {
 const GEMINI_API_KEY = "AIzaSyB2NaHameuEf_t2BIUHXGdeesVK6IzruGk";
 
 function getApiKey() {
-  if (GEMINI_API_KEY && GEMINI_API_KEY !== "AIzaSyB2NaHameuEf_t2BIUHXGdeesVK6IzruGk") {
+  if (GEMINI_API_KEY && GEMINI_API_KEY !== "COLLE_TA_CLE_ICI") {
     return GEMINI_API_KEY;
   }
   return document.getElementById('api-key').value.trim()
@@ -965,9 +965,10 @@ async function analyze() {
   const apiKey = getApiKey();
 
   // Vérifier la clé API
-  if (!apiKey) {
+if (!apiKey) {
     showMessage(
-      'AIzaSyB2NaHameuEf_t2BIUHXGdeesVK6IzruGk'
+      '❌ Clé API manquante.',
+      'var(--red)'
     );
     return;
   }
@@ -1178,7 +1179,7 @@ function reset() {
 // ─── INITIALISATION ───────────────────────────────────────────────────────────
 function init() {
   // Charger la clé sauvegardée
-  const savedKey = localStorage.getItem('AIzaSyB2NaHameuEf_t2BIUHXGdeesVK6IzruGk');
+ const savedKey = localStorage.getItem('tacticai_gemini_key');
   if (savedKey) document.getElementById('api-key').value = savedKey;
 
   // Construire les formations
