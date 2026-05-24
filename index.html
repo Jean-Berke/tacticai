@@ -1012,27 +1012,33 @@ async function analyze() {
     // Log pour debug — visible dans F12 > Console
     console.log('Réponse brute Gemini:', raw);
 
-    // Extraire le JSON de la réponse — parsing robuste
+    // Nettoyage et parsing robuste de la réponse
     let parsed = null;
-    const match = raw.match(/```json\s*([\s\S]*?)\s*```/)
-                || raw.match(/```\s*([\s\S]*?)\s*```/)
-                || raw.match(/(\{[\s\S]*\})/);
+    let cleanRaw = raw.trim();
 
-    if (match) {
-      try { parsed = JSON.parse(match[1] || match[0]); } catch(e) {}
+    // Cas 1 : JSON direct sans balises
+    if (cleanRaw.startsWith('{')) {
+      try { parsed = JSON.parse(cleanRaw); } catch(e) {}
     }
 
-    // Tentative directe si pas encore parsé
+    // Cas 2 : Balises ```json ... ```
     if (!parsed) {
-      try { parsed = JSON.parse(raw); } catch(e) {}
+      const m = cleanRaw.match(/```json\s*([\s\S]*?)\s*```/);
+      if (m) try { parsed = JSON.parse(m[1]); } catch(e) {}
     }
 
-    // Tentative en extrayant le premier { ... } trouvé
+    // Cas 3 : Balises ``` ... ``` sans json
     if (!parsed) {
-      const start = raw.indexOf('{');
-      const end   = raw.lastIndexOf('}');
+      const m = cleanRaw.match(/```\s*([\s\S]*?)\s*```/);
+      if (m) try { parsed = JSON.parse(m[1]); } catch(e) {}
+    }
+
+    // Cas 4 : Extraire le premier { ... } trouvé
+    if (!parsed) {
+      const start = cleanRaw.indexOf('{');
+      const end   = cleanRaw.lastIndexOf('}');
       if (start !== -1 && end !== -1) {
-        try { parsed = JSON.parse(raw.substring(start, end + 1)); } catch(e) {}
+        try { parsed = JSON.parse(cleanRaw.substring(start, end + 1)); } catch(e) {}
       }
     }
 
