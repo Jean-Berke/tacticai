@@ -1016,32 +1016,19 @@ async function analyze() {
     let parsed = null;
     let cleanRaw = raw.trim();
 
-    // Cas 1 : JSON direct sans balises
-    if (cleanRaw.startsWith('{')) {
-      try { parsed = JSON.parse(cleanRaw); } catch(e) {}
-    }
+    // Supprimer les balises <think>
+    cleanRaw = cleanRaw.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
-    // Cas 2 : Balises ```json ... ```
-    if (!parsed) {
-      const m = cleanRaw.match(/```json\s*([\s\S]*?)\s*```/);
-      if (m) try { parsed = JSON.parse(m[1]); } catch(e) {}
-    }
-
-    // Cas 3 : Balises ``` ... ``` sans json
-    if (!parsed) {
-      const m = cleanRaw.match(/```\s*([\s\S]*?)\s*```/);
-      if (m) try { parsed = JSON.parse(m[1]); } catch(e) {}
-    }
-
-    // Cas 4 : Extraire le premier { ... } trouvé
-    if (!parsed) {
-      const start = cleanRaw.indexOf('{');
-      const end   = cleanRaw.lastIndexOf('}');
-      if (start !== -1 && end !== -1) {
-        try { parsed = JSON.parse(cleanRaw.substring(start, end + 1)); } catch(e) {}
+    // Toujours essayer d'extraire directement le { ... } en premier
+    const start = cleanRaw.indexOf('{');
+    const end   = cleanRaw.lastIndexOf('}');
+    if (start !== -1 && end !== -1) {
+      try { parsed = JSON.parse(cleanRaw.substring(start, end + 1)); } catch(e) {
+        console.log('Parse error:', e.message);
       }
     }
 
+    console.log('Parsed result:', parsed);
     if (!parsed) throw new Error('Réponse invalide du modèle IA. Réessaie.');
     displayResult(parsed, ourPlayers, theirPlayers);
 
