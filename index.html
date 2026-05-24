@@ -1009,6 +1009,9 @@ async function analyze() {
     const data = await res.json();
     const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
+    // Log pour debug — visible dans F12 > Console
+    console.log('Réponse brute Gemini:', raw);
+
     // Extraire le JSON de la réponse — parsing robuste
     let parsed = null;
     const match = raw.match(/```json\s*([\s\S]*?)\s*```/)
@@ -1046,44 +1049,22 @@ async function analyze() {
 
 // ─── CONSTRUCTION DU PROMPT ───────────────────────────────────────────────────
 function buildPrompt({ ourPlayers, theirPlayers, ourSubs, theirSubs, ourNotes, theirNotes }) {
-  return `Tu es un analyste tactique football expert. Analyse ces deux équipes et génère une stratégie complète.
+  return `Tu es un analyste tactique football. Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte avant ou après, sans balises markdown, sans explication.
 
 NOTRE ÉQUIPE (formation: ${state.ourFormation}):
 Titulaires: ${ourPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
 Remplaçants: ${ourSubs.length ? ourSubs.join(', ') : 'non renseignés'}
-Style de jeu: ${state.ourStyles.length ? state.ourStyles.join(', ') : 'non défini'}
+Style: ${state.ourStyles.length ? state.ourStyles.join(', ') : 'non défini'}
 ${ourNotes ? 'Notes: ' + ourNotes : ''}
 
 ÉQUIPE ADVERSE (formation: ${state.theirFormation}):
 Titulaires: ${theirPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
 Remplaçants: ${theirSubs.length ? theirSubs.join(', ') : 'non renseignés'}
-Style de jeu: ${state.theirStyles.length ? state.theirStyles.join(', ') : 'non défini'}
+Style: ${state.theirStyles.length ? state.theirStyles.join(', ') : 'non défini'}
 ${theirNotes ? 'Notes: ' + theirNotes : ''}
 
-Réponds UNIQUEMENT avec ce JSON valide, zéro texte avant ou après:
-{
-  "threat_level": "Élevé|Moyen|Faible",
-  "win_probability": "XX%",
-  "key_weaknesses": ["faiblesse 1", "faiblesse 2", "faiblesse 3"],
-  "recommended_11": [
-    {"pos": "GB", "name": "nom exact du joueur", "role": "rôle tactique court"}
-  ],
-  "matchups": [
-    {
-      "our_player": "Nom",
-      "our_pos": "POSTE",
-      "their_player": "Nom",
-      "their_pos": "POSTE",
-      "intensity": "high|medium|low",
-      "comment": "Commentaire tactique précis sur ce duel en 1-2 phrases."
-    }
-  ],
-  "tactical_analysis": "Analyse en 3 paragraphes séparés par deux sauts de ligne.",
-  "key_instructions": ["Instruction 1", "Instruction 2", "Instruction 3", "Instruction 4", "Instruction 5"],
-  "sub_strategy": "Stratégie de remplacement recommandée en 1-2 phrases."
-}
-
-Règles: utilise les vrais noms des joueurs. Génère 5-6 duels clés. recommended_11 doit avoir exactement 11 joueurs adaptés à notre formation. intensity: high = duel crucial, medium = important, low = favorable pour nous.`;
+Retourne EXACTEMENT ce JSON (remplace les valeurs entre guillemets) :
+{"threat_level":"Élevé","win_probability":"60%","key_weaknesses":["faiblesse1","faiblesse2","faiblesse3"],"recommended_11":[{"pos":"GB","name":"nom","role":"role"},{"pos":"DD","name":"nom","role":"role"},{"pos":"DC","name":"nom","role":"role"},{"pos":"DC","name":"nom","role":"role"},{"pos":"DG","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"}],"matchups":[{"our_player":"nom","our_pos":"MC","their_player":"nom","their_pos":"MC","intensity":"high","comment":"commentaire"},{"our_player":"nom","our_pos":"DD","their_player":"nom","their_pos":"AG","intensity":"medium","comment":"commentaire"},{"our_player":"nom","our_pos":"BU","their_player":"nom","their_pos":"DC","intensity":"high","comment":"commentaire"}],"tactical_analysis":"paragraphe1\n\nparagraphe2\n\nparagraphe3","key_instructions":["instruction1","instruction2","instruction3","instruction4","instruction5"],"sub_strategy":"strategie remplacants"}`;
 }
 
 // ─── AFFICHAGE DES RÉSULTATS ──────────────────────────────────────────────────
