@@ -1009,14 +1009,31 @@ async function analyze() {
     const data = await res.json();
     const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Extraire le JSON de la réponse
+    // Extraire le JSON de la réponse — parsing robuste
+    let parsed = null;
     const match = raw.match(/```json\s*([\s\S]*?)\s*```/)
                 || raw.match(/```\s*([\s\S]*?)\s*```/)
                 || raw.match(/(\{[\s\S]*\})/);
 
-    if (!match) throw new Error('Réponse invalide du modèle IA. Réessaie.');
+    if (match) {
+      try { parsed = JSON.parse(match[1] || match[0]); } catch(e) {}
+    }
 
-    const parsed = JSON.parse(match[1] || match[0]);
+    // Tentative directe si pas encore parsé
+    if (!parsed) {
+      try { parsed = JSON.parse(raw); } catch(e) {}
+    }
+
+    // Tentative en extrayant le premier { ... } trouvé
+    if (!parsed) {
+      const start = raw.indexOf('{');
+      const end   = raw.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+        try { parsed = JSON.parse(raw.substring(start, end + 1)); } catch(e) {}
+      }
+    }
+
+    if (!parsed) throw new Error('Réponse invalide du modèle IA. Réessaie.');
     displayResult(parsed, ourPlayers, theirPlayers);
 
   } catch (err) {
