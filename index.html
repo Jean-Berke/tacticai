@@ -996,7 +996,7 @@ async function analyze() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
+          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
         }),
       }
     );
@@ -1042,22 +1042,16 @@ async function analyze() {
 
 // ─── CONSTRUCTION DU PROMPT ───────────────────────────────────────────────────
 function buildPrompt({ ourPlayers, theirPlayers, ourSubs, theirSubs, ourNotes, theirNotes }) {
-  return `Tu es un analyste tactique football. Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte avant ou après, sans balises markdown, sans explication.
+  return `Tu es un analyste tactique football. IMPORTANT: réponds UNIQUEMENT avec du JSON brut, aucun texte, aucun markdown, aucune balise.
 
-NOTRE ÉQUIPE (formation: ${state.ourFormation}):
-Titulaires: ${ourPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
-Remplaçants: ${ourSubs.length ? ourSubs.join(', ') : 'non renseignés'}
-Style: ${state.ourStyles.length ? state.ourStyles.join(', ') : 'non défini'}
-${ourNotes ? 'Notes: ' + ourNotes : ''}
+NOTRE ÉQUIPE (${state.ourFormation}): ${ourPlayers.map(p => p.pos+':'+p.name).join(',')}
+Style: ${state.ourStyles.join(',') || 'libre'}${ourNotes ? ' Notes:'+ourNotes : ''}
 
-ÉQUIPE ADVERSE (formation: ${state.theirFormation}):
-Titulaires: ${theirPlayers.map(p => `${p.pos}: ${p.name}`).join(', ')}
-Remplaçants: ${theirSubs.length ? theirSubs.join(', ') : 'non renseignés'}
-Style: ${state.theirStyles.length ? state.theirStyles.join(', ') : 'non défini'}
-${theirNotes ? 'Notes: ' + theirNotes : ''}
+ADVERSAIRE (${state.theirFormation}): ${theirPlayers.map(p => p.pos+':'+p.name).join(',')}
+Style: ${state.theirStyles.join(',') || 'libre'}${theirNotes ? ' Notes:'+theirNotes : ''}
 
-Retourne EXACTEMENT ce JSON (remplace les valeurs entre guillemets) :
-{"threat_level":"Élevé","win_probability":"60%","key_weaknesses":["faiblesse1","faiblesse2","faiblesse3"],"recommended_11":[{"pos":"GB","name":"nom","role":"role"},{"pos":"DD","name":"nom","role":"role"},{"pos":"DC","name":"nom","role":"role"},{"pos":"DC","name":"nom","role":"role"},{"pos":"DG","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"MC","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"},{"pos":"AT","name":"nom","role":"role"}],"matchups":[{"our_player":"nom","our_pos":"MC","their_player":"nom","their_pos":"MC","intensity":"high","comment":"commentaire"},{"our_player":"nom","our_pos":"DD","their_player":"nom","their_pos":"AG","intensity":"medium","comment":"commentaire"},{"our_player":"nom","our_pos":"BU","their_player":"nom","their_pos":"DC","intensity":"high","comment":"commentaire"}],"tactical_analysis":"paragraphe1\n\nparagraphe2\n\nparagraphe3","key_instructions":["instruction1","instruction2","instruction3","instruction4","instruction5"],"sub_strategy":"strategie remplacants"}`;
+Analyse et retourne ce JSON complété:
+{"threat_level":"Élevé","win_probability":"60%","key_weaknesses":["w1","w2","w3"],"recommended_11":[{"pos":"GB","name":"?","role":"?"},{"pos":"DD","name":"?","role":"?"},{"pos":"DC","name":"?","role":"?"},{"pos":"DC","name":"?","role":"?"},{"pos":"DG","name":"?","role":"?"},{"pos":"MC","name":"?","role":"?"},{"pos":"MC","name":"?","role":"?"},{"pos":"MC","name":"?","role":"?"},{"pos":"AT","name":"?","role":"?"},{"pos":"AT","name":"?","role":"?"},{"pos":"AT","name":"?","role":"?"}],"matchups":[{"our_player":"?","our_pos":"?","their_player":"?","their_pos":"?","intensity":"high","comment":"?"},{"our_player":"?","our_pos":"?","their_player":"?","their_pos":"?","intensity":"medium","comment":"?"},{"our_player":"?","our_pos":"?","their_player":"?","their_pos":"?","intensity":"low","comment":"?"}],"tactical_analysis":"para1. para2.","key_instructions":["i1","i2","i3"],"sub_strategy":"strategie"}`;
 }
 
 // ─── AFFICHAGE DES RÉSULTATS ──────────────────────────────────────────────────
